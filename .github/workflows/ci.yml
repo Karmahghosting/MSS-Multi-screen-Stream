@@ -35,11 +35,17 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
-          # See release.yml: force system ld so rust-lld doesn't hide the
-          # multiarch lib path on Ubuntu.
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+          # See release.yml: disable the bundled rust-lld so cc uses system
+          # GNU ld, which knows about /usr/lib/x86_64-linux-gnu.
+          echo "RUSTFLAGS=-C link-self-contained=no" >> "$GITHUB_ENV"
 
       - run: cargo check --all-targets --locked
+
+      # cargo check doesn't link the binary, so it can't catch missing system
+      # libraries. Do a real linking build on Linux to surface link issues.
+      - name: cargo build --release (linux link smoke test)
+        if: runner.os == 'Linux'
+        run: cargo build --release --locked --bins
 
   fmt:
     name: cargo fmt
@@ -72,6 +78,6 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-C link-self-contained=no" >> "$GITHUB_ENV"
       - run: cargo clippy --all-targets --locked -- -D warnings
         continue-on-error: true

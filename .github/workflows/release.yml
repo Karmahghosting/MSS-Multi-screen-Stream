@@ -53,11 +53,14 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
-          # Force rustc to use the system ld instead of bundled rust-lld, which
-          # since ~Rust 1.78 doesn't search /usr/lib/x86_64-linux-gnu and so
-          # can't find libxcb-randr.so even when libxcb-randr0-dev is installed.
-          # Also explicitly add the multiarch path as belt-and-suspenders.
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+          # Disable rustc's "self-contained" linker bundle. Without this,
+          # rustc passes -B<sysroot>/lib/rustlib/.../gcc-ld to cc, and inside
+          # that dir `ld`, `ld.lld`, `ld.gold`, `ld.bfd` are all symlinks to
+          # rust-lld. rust-lld doesn't search /usr/lib/x86_64-linux-gnu by
+          # default, so it can't find libxcb-randr.so even when the dev
+          # package is installed. Turning self-contained off makes cc fall
+          # back to the system GNU ld, which honours gcc's specs.
+          echo "RUSTFLAGS=-C link-self-contained=no" >> "$GITHUB_ENV"
 
       - name: Diagnose Linux link environment
         if: runner.os == 'Linux'
