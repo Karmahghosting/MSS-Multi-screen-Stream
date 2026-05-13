@@ -35,6 +35,9 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
+          # See release.yml: force system ld so rust-lld doesn't hide the
+          # multiarch lib path on Ubuntu.
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
 
       - run: cargo check --all-targets --locked
 
@@ -69,5 +72,6 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
       - run: cargo clippy --all-targets --locked -- -D warnings
         continue-on-error: true

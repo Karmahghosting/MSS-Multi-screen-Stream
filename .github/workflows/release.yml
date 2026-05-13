@@ -53,6 +53,29 @@ jobs:
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
+          # Force rustc to use the system ld instead of bundled rust-lld, which
+          # since ~Rust 1.78 doesn't search /usr/lib/x86_64-linux-gnu and so
+          # can't find libxcb-randr.so even when libxcb-randr0-dev is installed.
+          # Also explicitly add the multiarch path as belt-and-suspenders.
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=ld -L /usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+
+      - name: Diagnose Linux link environment
+        if: runner.os == 'Linux'
+        run: |
+          set +e
+          echo "## Linux link diagnostics" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "--- which ld ---"          | tee -a "$GITHUB_STEP_SUMMARY"
+          which ld; ld --version | head -1  | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- libxcb-randr files ---" | tee -a "$GITHUB_STEP_SUMMARY"
+          dpkg -L libxcb-randr0-dev | grep -E '\.so($|\.)|pkgconfig' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- /usr/lib multiarch xcb ---" | tee -a "$GITHUB_STEP_SUMMARY"
+          ls -la /usr/lib/x86_64-linux-gnu/libxcb-randr* | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- pkg-config ---"        | tee -a "$GITHUB_STEP_SUMMARY"
+          pkg-config --libs xcb-randr | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "--- RUSTFLAGS ---"         | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "$RUSTFLAGS"                | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build (unix, with log capture)
         if: runner.os != 'Windows'
