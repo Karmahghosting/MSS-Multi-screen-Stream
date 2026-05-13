@@ -1,0 +1,42 @@
+[package]
+name = "p2p-screenshare"
+version = "0.2.0"
+edition = "2021"
+description = "MSS — direct P2P multi-monitor screen sharing in Rust. One stream per remote monitor; one fullscreen window per stream on the receiver."
+repository = "https://github.com/Karmahghosting/MSS-Multi-screen-Stream"
+license = "MIT"
+
+[[bin]]
+name = "p2p-screenshare"
+path = "src/main.rs"
+
+[[bin]]
+name = "p2p-screenshare-gui"
+path = "src/gui.rs"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
+
+[dependencies]
+anyhow = "1"
+bytemuck = "1"
+clap = { version = "4", features = ["derive"] }
+crossbeam-channel = "0.5"
+directories = "5"
+eframe = { version = "0.28", default-features = false, features = ["default_fonts", "glow"] }
+egui_plot = "0.28"
+jpeg-encoder = "0.6"
+parking_lot = "0.12"
+regex = "1"
+scrap = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+softbuffer = "0.4"
+winit = "0.29"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+zune-core = "0.5"
+zune-jpeg = "0.5"

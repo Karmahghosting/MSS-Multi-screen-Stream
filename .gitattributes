@@ -1,0 +1,10 @@
+# Force LF in the repo regardless of host OS. Working trees on Windows still
+# get CRLF on checkout via core.autocrlf if the user has it enabled.
+* text=auto eol=lf
+
+# Binary types — never touch
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.tar.gz binary

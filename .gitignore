@@ -1,0 +1,23 @@
+# Rust build outputs
+/target
+/dist
+
+# Local, machine-specific Cargo overrides
+# (we keep .cargo/config.toml out of the repo because it's used here only to
+#  redirect target/ off a path with spaces — the GNU Rust toolchain's dlltool
+#  can't handle spaces in arguments. Other contributors don't need this.)
+/.cargo/config.toml
+
+# Editors / IDEs
+/.vscode
+/.idea
+*.iml
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Locally-built settings (the GUI persists user prefs in the OS config dir, not here)
+/settings.json
