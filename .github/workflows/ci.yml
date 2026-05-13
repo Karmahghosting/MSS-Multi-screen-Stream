@@ -31,7 +31,9 @@ jobs:
             libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgtk-3-dev libssl-dev libwayland-dev \
-            libfontconfig1-dev pkg-config
+            libfontconfig1-dev pkg-config \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
 
       - run: cargo check --all-targets --locked
 
@@ -62,6 +64,8 @@ jobs:
             libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgtk-3-dev libssl-dev libwayland-dev \
-            libfontconfig1-dev pkg-config
+            libfontconfig1-dev pkg-config \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
       - run: cargo clippy --all-targets --locked -- -D warnings
         continue-on-error: true
