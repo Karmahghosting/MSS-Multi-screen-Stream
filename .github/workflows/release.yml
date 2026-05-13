@@ -47,14 +47,44 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-render0-dev \
+            libxcb-randr0-dev libxcb-shm0-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgtk-3-dev libssl-dev libwayland-dev \
             libfontconfig1-dev pkg-config \
             libgl1-mesa-dev libegl1-mesa-dev \
             libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev
 
-      - name: Build
+      - name: Build (unix, with log capture)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/buildlog
+          cargo build --release --locked --target ${{ matrix.target }} --verbose 2>&1 | tee /tmp/buildlog/build.log
+
+      - name: Build (windows)
+        if: runner.os == 'Windows'
         run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Publish build log to step summary on failure
+        if: failure() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          {
+            echo "## Build failure log (\`${{ matrix.target }}\`)"
+            echo ""
+            echo '```'
+            tail -n 300 /tmp/buildlog/build.log || echo "(no log captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build log artifact on failure
+        if: failure() && runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.target }}
+          path: /tmp/buildlog/build.log
+          if-no-files-found: ignore
 
       - name: Stage artifact (unix)
         if: runner.os != 'Windows'
