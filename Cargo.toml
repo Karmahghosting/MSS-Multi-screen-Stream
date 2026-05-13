@@ -16,7 +16,10 @@ path = "src/gui.rs"
 
 [profile.release]
 opt-level = 3
-lto = "fat"
+# "thin" gives ~95% of fat-LTO's size/speed wins and links cleanly across
+# every platform we ship to (fat-LTO occasionally trips the Linux linker for
+# the eframe+softbuffer+scrap dep graph).
+lto = "thin"
 codegen-units = 1
 panic = "abort"
 strip = "debuginfo"
