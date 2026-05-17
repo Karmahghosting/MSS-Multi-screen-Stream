@@ -21,21 +21,49 @@ struct PendingFrame {
 
 type Slot = Arc<Mutex<Option<PendingFrame>>>;
 
-pub fn run_sender(bind: &str, fps: u32, quality: u8, skip_unchanged: bool) -> Result<()> {
-    let n_monitors = Display::all().context("enumerate displays")?.len();
-    anyhow::ensure!(n_monitors > 0, "no displays detected");
+pub fn run_sender(
+    bind: &str,
+    fps: u32,
+    quality: u8,
+    skip_unchanged: bool,
+    filter: Vec<usize>,
+) -> Result<()> {
+    let total_displays = Display::all().context("enumerate displays")?.len();
+    anyhow::ensure!(total_displays > 0, "no displays detected");
+
+    // An empty filter means "every display"; otherwise validate that each
+    // requested index actually exists and use it as the capture list.
+    let capture_indices: Vec<usize> = if filter.is_empty() {
+        (0..total_displays).collect()
+    } else {
+        for &idx in &filter {
+            anyhow::ensure!(
+                idx < total_displays,
+                "display index {idx} out of range (only {total_displays} detected)"
+            );
+        }
+        filter
+    };
+    let n_monitors = capture_indices.len();
+    anyhow::ensure!(n_monitors > 0, "no displays selected");
     anyhow::ensure!(n_monitors <= u8::MAX as usize, "too many displays");
 
     let listener = TcpListener::bind(bind).with_context(|| format!("bind {bind}"))?;
     println!(
-        "[share] listening on {bind} | {n_monitors} monitor(s) | fps={fps} quality={quality} skip_unchanged={skip_unchanged}"
+        "[share] listening on {bind} | {n_monitors} monitor(s) (indices {capture_indices:?}) | fps={fps} quality={quality} skip_unchanged={skip_unchanged}"
     );
 
     loop {
         let (stream, peer) = listener.accept().context("accept")?;
         println!("[share] peer connected: {peer}");
         stream.set_nodelay(true).ok();
-        if let Err(e) = serve_one(stream, n_monitors as u8, fps, quality, skip_unchanged) {
+        if let Err(e) = serve_one(
+            stream,
+            &capture_indices,
+            fps,
+            quality,
+            skip_unchanged,
+        ) {
             eprintln!("[share] session ended: {e}");
         }
         println!("[share] waiting for next peer on {bind}");
@@ -44,11 +72,12 @@ pub fn run_sender(bind: &str, fps: u32, quality: u8, skip_unchanged: bool) -> Re
 
 fn serve_one(
     stream: TcpStream,
-    n: u8,
+    capture_indices: &[usize],
     fps: u32,
     quality: u8,
     skip_unchanged: bool,
 ) -> Result<()> {
+    let n = capture_indices.len() as u8;
     let mut writer = BufWriter::with_capacity(1 << 20, stream);
     write_handshake(&mut writer, n)?;
     std::io::Write::flush(&mut writer)?;
@@ -57,14 +86,23 @@ fn serve_one(
     let (wake_tx, wake_rx) = bounded::<()>(1);
 
     let mut handles = Vec::with_capacity(n as usize);
-    for i in 0..n {
-        let slot = slots[i as usize].clone();
+    for (logical, &physical_idx) in capture_indices.iter().enumerate() {
+        let logical = logical as u8;
+        let slot = slots[logical as usize].clone();
         let wake = wake_tx.clone();
         let h = thread::Builder::new()
-            .name(format!("capture-{i}"))
+            .name(format!("capture-{logical}"))
             .spawn(move || {
-                if let Err(e) = capture_loop(i, slot, wake, fps, quality, skip_unchanged) {
-                    eprintln!("[share] capture {i} stopped: {e}");
+                if let Err(e) = capture_loop(
+                    logical,
+                    physical_idx,
+                    slot,
+                    wake,
+                    fps,
+                    quality,
+                    skip_unchanged,
+                ) {
+                    eprintln!("[share] capture {logical} (display #{physical_idx}) stopped: {e}");
                 }
             })?;
         handles.push(h);
@@ -138,6 +176,7 @@ fn io_loop(
 
 fn capture_loop(
     id: u8,
+    physical_idx: usize,
     slot: Slot,
     wake: Sender<()>,
     fps: u32,
@@ -146,8 +185,8 @@ fn capture_loop(
 ) -> Result<()> {
     let display = Display::all()?
         .into_iter()
-        .nth(id as usize)
-        .with_context(|| format!("display {id} is gone"))?;
+        .nth(physical_idx)
+        .with_context(|| format!("display {physical_idx} is gone"))?;
     let mut capturer = Capturer::new(display)?;
     let width = capturer.width() as u32;
     let height = capturer.height() as u32;

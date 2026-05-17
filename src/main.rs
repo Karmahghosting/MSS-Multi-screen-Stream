@@ -2,7 +2,7 @@ mod protocol;
 mod receiver;
 mod sender;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -20,6 +20,7 @@ use clap::{Parser, Subcommand};
 \n\
 Examples:\n\
   p2p-screenshare share --bind 0.0.0.0:9000\n\
+  p2p-screenshare share --bind 0.0.0.0:9000 --displays 0,2\n\
   p2p-screenshare view  --connect 192.168.1.5:9000\n\
 \n\
 Press Esc on any view window to quit."
@@ -45,6 +46,9 @@ enum Cmd {
         /// Skip re-encoding when the captured frame is byte-identical to the previous one.
         #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
         skip_unchanged: bool,
+        /// Comma-separated display indices to capture (e.g. "0,2"). Empty means every display.
+        #[arg(long, default_value = "")]
+        displays: String,
     },
     /// Connect to a sharer and display each remote monitor on its own local monitor.
     View {
@@ -52,16 +56,62 @@ enum Cmd {
         #[arg(long)]
         connect: String,
     },
+    /// Print detected local displays as JSON and exit. Used by the GUI.
+    Displays,
+}
+
+fn parse_display_filter(s: &str) -> Result<Vec<usize>> {
+    let mut out = Vec::new();
+    for tok in s.split(',') {
+        let tok = tok.trim();
+        if tok.is_empty() {
+            continue;
+        }
+        let idx: usize = tok
+            .parse()
+            .with_context(|| format!("invalid display index {tok:?}"))?;
+        if !out.contains(&idx) {
+            out.push(idx);
+        }
+    }
+    Ok(out)
+}
+
+fn print_displays_json() -> Result<()> {
+    let displays = scrap::Display::all().context("enumerate displays")?;
+    let mut s = String::from("[");
+    for (i, d) in displays.iter().enumerate() {
+        if i > 0 {
+            s.push(',');
+        }
+        s.push_str(&format!(
+            r#"{{"id":{},"width":{},"height":{}}}"#,
+            i,
+            d.width(),
+            d.height()
+        ));
+    }
+    s.push(']');
+    println!("{s}");
+    Ok(())
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Share { bind, fps, quality, skip_unchanged } => {
+        Cmd::Share {
+            bind,
+            fps,
+            quality,
+            skip_unchanged,
+            displays,
+        } => {
             let q = quality.clamp(1, 100);
             let fps = fps.clamp(1, 240);
-            sender::run_sender(&bind, fps, q, skip_unchanged)
+            let filter = parse_display_filter(&displays)?;
+            sender::run_sender(&bind, fps, q, skip_unchanged, filter)
         }
         Cmd::View { connect } => receiver::run_receiver(&connect),
+        Cmd::Displays => print_displays_json(),
     }
 }
