@@ -6,6 +6,16 @@ screens, the viewer sees three screens, one per physical display.
 
 ## Highlights
 
+- **Share by code.** The sharer's GUI shows a short, unambiguous
+  `XXXXX-XXXXX` session code. The viewer types it on their machine and
+  connects — no host:port, no IP-fishing.
+- **Pick the monitors you want to share.** The Share screen lets you toggle
+  each detected display before starting; the CLI also accepts
+  `--displays 0,2`.
+- **Tauri + React GUI.** A small, modern desktop launcher written in TSX
+  drives the Rust CLI under the hood. Wizard flow (Home → Configure →
+  Running), live per-monitor fps/KB/s sparklines, recent codes,
+  persisted settings.
 - **One stream per remote monitor.** A sharer with N displays emits N tracks
   multiplexed over a single TCP connection; the viewer opens one borderless
   fullscreen window per stream and pins each to a different local monitor
@@ -19,8 +29,6 @@ screens, the viewer sees three screens, one per physical display.
 - **Latest-frame-wins.** Capture and decode never queue stale frames; a slow
   network silently drops old frames in favor of fresh ones.
 - **Parallel decode.** One decode worker per remote monitor.
-- **Modern launcher GUI.** Wizard flow (Home → Configure → Running), live
-  per-monitor fps/KB/s sparklines, recent connections, persisted settings.
 - **Single multiplexed TCP connection.** No relay, no STUN, no signaling
   server. Direct peer-to-peer on LAN; tunnel (Tailscale / WireGuard / SSH /
   ngrok TCP) for the open Internet.
@@ -31,38 +39,51 @@ screens, the viewer sees three screens, one per physical display.
 
 Download the latest archive for your platform from the
 [Releases](https://github.com/Karmahghosting/MSS-Multi-screen-Stream/releases)
-page. Each archive contains both binaries:
-
-- `p2p-screenshare` — the CLI
-- `p2p-screenshare-gui` — the launcher GUI
+page. On Windows, the `*-setup.exe` installs the launcher (which also ships
+the CLI). On other platforms, the archive contains the CLI binary; build the
+launcher from source as described below.
 
 ### From source
 
 ```bash
 git clone https://github.com/Karmahghosting/MSS-Multi-screen-Stream.git
 cd MSS-Multi-screen-Stream
-cargo build --release
+cargo build --release          # builds the CLI
+cd gui
+pnpm install
+pnpm tauri build               # builds the desktop launcher
 ```
 
-Binaries land in `target/release/`.
+The CLI lands in `target/release/p2p-screenshare`. The launcher bundles land
+under `gui/src-tauri/target/release/bundle/`.
 
 #### Linux build dependencies
 
 ```bash
 sudo apt-get install \
-  libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+  libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev libxcb-render0-dev \
+  libxcb-randr0-dev libxcb-shm0-dev \
   libxkbcommon-dev libxkbcommon-x11-dev \
-  libgtk-3-dev libssl-dev libwayland-dev \
-  libfontconfig1-dev pkg-config
+  libssl-dev libfontconfig1-dev pkg-config
+# Tauri also wants webkit2gtk for the launcher:
+sudo apt-get install libwebkit2gtk-4.1-dev build-essential curl wget file
 ```
 
 ## Usage
 
 ### GUI
 
-Run `p2p-screenshare-gui`. Pick **Share** or **View** on the home screen,
-configure (fps / quality / bind or connect address), hit **Start**. The GUI
-spawns the CLI as a child and shows live stats parsed from its output.
+Run the **MSS** launcher (installed from the setup, or `mss-gui` if built
+locally). Pick **Share** or **View** on the home screen.
+
+- **Share** displays a short session code like `H7K3M-9PQRS` and a grid of
+  your local displays — click to toggle which ones you want to send. Hit
+  **Start sharing**, then read the code to your peer.
+- **View** asks for that code. Type it in (case-insensitive, no `0`, `1`,
+  `I`, `O` — those are excluded from the alphabet) and hit **Connect**.
+
+The launcher spawns the CLI as a child and shows live per-monitor
+fps/KB/s sparklines parsed from its output.
 
 ### CLI
 
@@ -70,6 +91,8 @@ On the sharing machine:
 
 ```bash
 p2p-screenshare share --bind 0.0.0.0:9000 --fps 60 --quality 70
+# pick specific monitors:
+p2p-screenshare share --bind 0.0.0.0:9000 --displays 0,2
 ```
 
 On the viewing machine:
@@ -88,9 +111,12 @@ share
   --fps <1..=120>             default 60
   --quality <1..=100>         JPEG quality, default 70
   --skip-unchanged <bool>     xxh3 frame-identity skip, default true
+  --displays <list>           comma-separated indices, empty = all
 
 view
   --connect <host:port>       required
+
+displays                      print detected local displays as JSON
 ```
 
 ## Wire format

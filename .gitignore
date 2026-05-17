@@ -19,5 +19,15 @@
 Thumbs.db
 desktop.ini
 
-# Locally-built settings (the GUI persists user prefs in the OS config dir, not here)
+# Locally-built settings (the GUI persists user prefs in localStorage / OS config dir, not here)
 /settings.json
+
+# Tauri / Node frontend build artifacts
+/gui/node_modules
+/gui/dist
+/gui/src-tauri/target
+/gui/src-tauri/gen
+# The CLI is copied into gui/src-tauri/bin/ at bundle time; never commit it.
+/gui/src-tauri/bin
+# Cargo.lock for the gui workspace lives separately; keep it for reproducible
+# builds. Uncomment if you want to ignore it instead.
